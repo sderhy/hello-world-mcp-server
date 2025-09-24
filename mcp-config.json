@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "hello-world-mcp": {
+      "command": "node",
+      "args": ["index.js"]
+    }
+  }
+}
