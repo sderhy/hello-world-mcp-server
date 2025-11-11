@@ -1,229 +1,230 @@
-# Hello World MCP Server
+# Hello World MCP Server - PHP Implementation
 
-A simple Model Context Protocol (MCP) server that provides a hello world tool. This server serves as a boilerplate template to help developers quickly create and deploy new MCP servers. It demonstrates basic MCP server functionality with a greeting tool and can be easily modified to add custom tools and resources.
+A minimal Model Context Protocol (MCP) server implementation in pure PHP with no dependencies. This demonstrates how MCP works at a fundamental level.
 
-## Features
+## How MCP Works
 
-- **Hello World Tool**: Simple greeting tool that says "Hello, {name}" with default "world"
-- **Input Validation**: Uses Zod schemas for robust parameter validation
-- **Simple and Clean**: Minimal MCP server implementation for demonstration purposes
+The Model Context Protocol (MCP) enables AI assistants like Claude to interact with external tools and data sources. Here's the architecture:
 
-## Using as a Boilerplate
-
-This project serves as a starting template for building your own MCP servers. To create a custom MCP server:
-
-1. Clone or fork this repository
-2. Modify `index.js` to add your own tools using `server.registerTool()`
-3. Update `package.json` with your server name and description
-4. Customize the README and configuration files as needed
-
-The basic structure includes proper error handling, input validation with Zod, and MCP protocol compliance.
-
-## Hello World Tool
-
-The server provides a simple hello world tool that greets users with a customizable name.
-
-### Tool Usage
-
-The `helloWorld` tool accepts an optional `name` parameter and returns a greeting message.
-
-**Parameters:**
-- `name`: Name to greet (optional, defaults to "world")
-
-**Example Response:**
 ```
-Hello, world!
+┌─────────────┐         JSON-RPC over stdio        ┌─────────────┐
+│             │ ────────────────────────────────> │             │
+│  MCP Client │                                    │  MCP Server │
+│ (Claude)    │ <──────────────────────────────── │    (PHP)    │
+└─────────────┘                                    └─────────────┘
 ```
 
-## Installation
+### Key Concepts
 
-### Global Installation (Recommended)
+1. **Transport**: Communication happens via stdio (standard input/output)
+2. **Protocol**: JSON-RPC 2.0 format for all messages
+3. **Tools**: Functions the server exposes that the client can call
+4. **Schema**: Each tool has an input schema describing its parameters
 
-1. Install globally via npm:
-   ```bash
-   npm install -g hello-world-mcp
-   ```
+### Message Flow
 
-2. The `hello-world-mcp` command will be available system-wide
+1. **Initialize**: Client sends initialize request with capabilities
+2. **List Tools**: Client requests available tools
+3. **Call Tool**: Client invokes a tool with arguments
+4. **Response**: Server returns results
 
-### Local Installation
+## Files
 
-1. Clone or download this repository
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-3. Start the server:
-   ```bash
-   npm start
-   ```
+- `mcp-server.php` - The MCP server implementation
+- `mcp-config.json` - Configuration for Claude Code
+- `test-mcp.sh` - Test script to verify the server works
+- `README.md` - This file
 
-## Usage
+## Prerequisites
 
-### Starting the Server
+You need PHP installed on your system (PHP 7.4 or higher recommended).
+
+### Install PHP on macOS
 
 ```bash
-npm start
+# Using Homebrew
+brew install php
+
+# Verify installation
+php --version
 ```
 
-### MCP Configuration
+### Install PHP on Linux
 
-#### For Global Installation
+```bash
+# Ubuntu/Debian
+sudo apt-get update
+sudo apt-get install php-cli
 
-Add this to your MCP client configuration:
+# Fedora/CentOS
+sudo dnf install php-cli
 
-```json
-{
-  "mcpServers": {
-    "hello-world-mcp": {
-      "command": "hello-world-mcp",
-      "args": [],
-      "env": {},
-      "description": "Hello World MCP server with greeting tool"
-    }
-  }
+# Verify installation
+php --version
+```
+
+## Testing the Server
+
+Run the test script to verify the server works correctly:
+
+```bash
+./test-mcp.sh
+```
+
+You should see JSON responses for:
+- Server initialization
+- List of available tools
+- Tool execution results
+
+## Manual Testing
+
+You can also test manually by piping JSON-RPC requests:
+
+```bash
+# Initialize the server
+echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0.0"}}}' | php mcp-server.php
+
+# List available tools
+echo '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' | php mcp-server.php
+
+# Call the helloWorld tool
+echo '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"helloWorld","arguments":{"name":"PHP"}}}' | php mcp-server.php
+```
+
+## Using with Claude Code
+
+To use this MCP server with Claude Code:
+
+1. **Option A**: Copy the configuration to Claude Code's global config
+
+   ```bash
+   # Location of Claude Code config (adjust path if needed)
+   # macOS/Linux: ~/.claude-code/mcp.json
+   # Windows: %APPDATA%\claude-code\mcp.json
+   ```
+
+   Add this to the `mcpServers` section:
+
+   ```json
+   {
+     "mcpServers": {
+       "hello-world-php": {
+         "command": "php",
+         "args": ["mcp-server.php"],
+         "cwd": "/Users/sergederhy/work/hello-world-mcp/test",
+         "description": "Hello World MCP server in PHP"
+       }
+     }
+   }
+   ```
+
+2. **Option B**: Use the local config file
+
+   The `mcp-config.json` file in this directory can be used as a reference.
+
+3. **Restart Claude Code** to load the new MCP server
+
+4. **Verify**: Claude Code should now have access to the `helloWorld` tool
+
+## Understanding the Code
+
+### Server Structure
+
+```php
+class MCPServer {
+    // Server metadata
+    private $serverInfo = ['name' => '...', 'version' => '...'];
+
+    // Registered tools
+    private $tools = [];
+
+    // Register a tool
+    public function registerTool($name, $schema, $handler) { ... }
+
+    // Handle incoming requests
+    public function handleRequest($request) { ... }
+
+    // Start listening on stdio
+    public function start() { ... }
 }
 ```
 
-#### For Local Installation
+### Request Handling
 
-Add this to your MCP client configuration:
+The server handles these JSON-RPC methods:
 
-```json
-{
-  "mcpServers": {
-    "hello-world-mcp": {
-      "command": "node",
-      "args": ["index.js"],
-      "cwd": "/path/to/hello-world-mcp",
-      "env": {},
-      "description": "Hello World MCP server with greeting tool"
-    }
-  }
-}
+1. **initialize** - Handshake and capability negotiation
+2. **tools/list** - Returns available tools and their schemas
+3. **tools/call** - Executes a tool with given arguments
+
+### Adding New Tools
+
+To add a new tool, register it in the constructor:
+
+```php
+$this->registerTool('myTool', [
+    'description' => 'Description of what this tool does',
+    'inputSchema' => [
+        'type' => 'object',
+        'properties' => [
+            'param1' => [
+                'type' => 'string',
+                'description' => 'Parameter description'
+            ]
+        ]
+    ]
+], function($params) {
+    // Your tool logic here
+    return [
+        'content' => [
+            ['type' => 'text', 'text' => 'Result']
+        ]
+    ];
+});
 ```
 
-## Usage Examples
+## Architecture Decisions
 
-### Hello World Tool
+This implementation is intentionally minimal to demonstrate MCP concepts:
 
-```json
-{
-  "name": "helloWorld",
-  "arguments": {
-    "name": "Alice"
-  }
-}
+1. **No dependencies**: Pure PHP, no composer packages
+2. **Single file**: All code in one file for easy understanding
+3. **Synchronous**: Simple blocking I/O for clarity
+4. **Basic validation**: Minimal error handling to keep code readable
+
+For production use, consider:
+- Adding input validation
+- Better error handling
+- Logging to files instead of stderr
+- Using async I/O for better performance
+- Adding more sophisticated tool schemas
+
+## Common Issues
+
+### PHP not found
+```bash
+# Install PHP first (see Prerequisites section)
+brew install php  # macOS
 ```
 
-**Response:**
-```json
-{
-  "content": [
-    {
-      "type": "text",
-      "text": "Hello, Alice!"
-    }
-  ]
-}
+### Permission denied
+```bash
+chmod +x mcp-server.php
+chmod +x test-mcp.sh
 ```
 
-### Default Greeting
-
-```json
-{
-  "name": "helloWorld",
-  "arguments": {}
-}
+### Server not responding
+Check stderr output for debug messages:
+```bash
+echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | php mcp-server.php 2>&1
 ```
 
-**Response:**
-```json
-{
-  "content": [
-    {
-      "type": "text",
-      "text": "Hello, world!"
-    }
-  ]
-}
-```
+## Next Steps
 
-## Available Tools
-
-### Hello World Tool
-
-#### `helloWorld`
-A simple greeting tool that says "Hello, {name}" with default "world".
-
-**Parameters:**
-- `name`: Name to greet (optional, defaults to "world")
-
-### Hello World Examples
-
-#### Basic Greeting
-
-```json
-{
-  "name": "helloWorld",
-  "arguments": {
-    "name": "Alice"
-  }
-}
-```
-
-**Response:**
-```json
-{
-  "content": [
-    {
-      "type": "text",
-      "text": "Hello, Alice!"
-    }
-  ]
-}
-```
-
-#### Default Greeting
-
-```json
-{
-  "name": "helloWorld",
-  "arguments": {}
-}
-```
-
-**Response:**
-```json
-{
-  "content": [
-    {
-      "type": "text",
-      "text": "Hello, world!"
-    }
-  ]
-}
-```
-
-## Response Format
-
-The hello world tool returns a simple text response:
-
-```json
-{
-  "content": [
-    {
-      "type": "text",
-      "text": "Hello, world!"
-    }
-  ]
-}
-```
-
-## Dependencies
-
-- `@modelcontextprotocol/sdk`: MCP SDK for server implementation
-- `zod`: Schema validation library
+1. **Experiment**: Modify the helloWorld tool to do something different
+2. **Add Tools**: Create new tools (calculator, file reader, etc.)
+3. **Connect to Claude**: Configure Claude Code to use this server
+4. **Learn More**: Read the [MCP documentation](https://modelcontextprotocol.io/)
 
 ## License
 
